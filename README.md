@@ -1,4 +1,4 @@
-# Populate your Google calendar from your [Game Officials](www.gameofficials.com) game list.
+# Populate your Google calendar from your [Game Officials](http://www.gameofficials.net) game list.
 
 A simple little program that will log into your GO account and find all your assignments for the current month and the next month.  It will then add those to your Google calendar if they do not already exist.
 
