@@ -4,6 +4,7 @@ import mechanize
 import cookielib
 from bs4 import BeautifulSoup
 import html2text
+import time
 import datetime
 from dateutil.relativedelta import relativedelta
 
@@ -18,54 +19,59 @@ def checkCalendar(mechBrowser, url):
 
     gc = gCalendar()
     for game in games:
-        g = BeautifulSoup(br.open(game['href']).read(), 'html.parser')
+        g = BeautifulSoup(mechBrowser.open(game['href']).read(), 'html.parser')
         gc.addEvent(g.contents[0])
 
 
-if not os.environ.has_key('goUsername') or not os.environ.has_key("goPassword"):
-    print ("cannot find go credentials")
-    exit()
+def main():
+    if not os.environ.has_key('goUsername') or not os.environ.has_key("goPassword"):
+        print ("cannot find go credentials")
+        exit()
 
-# Browser
-br = mechanize.Browser()
+    # Browser
+    br = mechanize.Browser()
 
-# Cookie Jar
-cj = cookielib.LWPCookieJar()
-br.set_cookiejar(cj)
+    # Cookie Jar
+    cj = cookielib.LWPCookieJar()
+    br.set_cookiejar(cj)
 
-# Browser options
-br.set_handle_equiv(True)
-br.set_handle_redirect(True)
-br.set_handle_referer(True)
-br.set_handle_robots(False)
-br.set_handle_refresh(mechanize._http.HTTPRefreshProcessor(), max_time=1)
+    # Browser options
+    br.set_handle_equiv(True)
+    br.set_handle_redirect(True)
+    br.set_handle_referer(True)
+    br.set_handle_robots(False)
+    br.set_handle_refresh(mechanize._http.HTTPRefreshProcessor(), max_time=1)
 
-br.addheaders = [('User-agent', 'Chrome')]
+    br.addheaders = [('User-agent', 'Chrome')]
 
-# The site we will navigate into, handling it's session
-br.open('https://www.gameofficials.net/public/default.cfm')
+    # The site we will navigate into, handling it's session
+    br.open('https://www.gameofficials.net/public/default.cfm')
 
-# Select the second (index one) form (the first form is a search query box)
-br.select_form(nr=0)
+    # Select the second (index one) form (the first form is a search query box)
+    br.select_form(nr=0)
 
-# User credentials
-br.form['username'] = os.environ['goUsername']
-br.form['password'] = os.environ['goPassword']
+    # User credentials
+    br.form['username'] = os.environ['goUsername']
+    br.form['password'] = os.environ['goPassword']
 
-# Login
-br.submit()
+    # Login
+    br.submit()
 
-# check this month
-url = "https://www.gameofficials.net/Game/myGames.cfm?viewRange=ThisMonth&module=myGames"
-checkCalendar(br, url)
+    # check this month
+    url = "https://www.gameofficials.net/Game/myGames.cfm?viewRange=ThisMonth&module=myGames"
+    checkCalendar(br, url)
 
-# and next month
-today = datetime.date.today()
-p1month = relativedelta(months=1)
-today += p1month
-nextMonth = today.month
-nextYear = today.year  # uh, why are we reffing in December?
-url = "https://www.gameofficials.net/Game/myGames.cfm?module=myGames&viewRange=NextMonth&strDay={0}/1/{1}".format(nextMonth, nextYear)
-checkCalendar(br, url)
+    # and next month
+    today = datetime.date.today()
+    p1month = relativedelta(months=1)
+    today += p1month
+    nextMonth = today.month
+    nextYear = today.year  # uh, why are we reffing in December?
+    url = "https://www.gameofficials.net/Game/myGames.cfm?module=myGames&viewRange=NextMonth&strDay={0}/1/{1}".format(nextMonth, nextYear)
+    checkCalendar(br, url)
 
 
+if __name__ == "__main__":
+    while(True):
+        main()
+        time.sleep(60*60*1) # 1 hour

@@ -70,15 +70,15 @@ class gCalendar:
         gEnd = game.find(']')
         gEnd = len(game) - gEnd
         gId = game[gStart:-gEnd]
+        searchString = '"[Game: {0}]"'.format(gId)
         # only start looking from the beginning of this month as game number from previous years recycle
         now = datetime.datetime.utcnow()
         now = now.replace(day=1)
         timemin = now.isoformat() + 'Z'
-        #print ("game id: {0}".format(gId))
-        events = self.service.events().list(calendarId='primary', timeMin=timemin, q=gId).execute()
-        #print ("game found? {0}".format(len(events['items']) > 0))
+#        print ("game id: {0}".format(gId))
+        events = self.service.events().list(calendarId='primary', timeMin=timemin, q=searchString).execute()
+#        print ("game found? {0}".format(len(events['items']) > 0))
         return len(events['items']) > 0
-
 
     def icsToEvent(self, icsData):    
         calendar = icalendar.Calendar.from_ical(icsData)
