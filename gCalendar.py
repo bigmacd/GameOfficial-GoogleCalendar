@@ -75,9 +75,15 @@ class gCalendar:
         now = datetime.datetime.utcnow()
         now = now.replace(day=1)
         timemin = now.isoformat() + 'Z'
-#        print ("game id: {0}".format(gId))
+        print ("game id: {0}".format(gId))
         events = self.service.events().list(calendarId='primary', timeMin=timemin, q=searchString).execute()
-#        print ("game found? {0}".format(len(events['items']) > 0))
+        print ("game found? {0}".format(len(events['items']) > 0))
+        if len(events['items']) > 0:
+            for item in events['items']:
+                print ("*******************************************************")
+                print ("Found:")
+                print (item['description'])
+                print ("*******************************************************")
         return len(events['items']) > 0
 
     def icsToEvent(self, icsData):    

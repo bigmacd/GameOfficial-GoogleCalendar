@@ -1,4 +1,3 @@
-##################################### Method 1
 import os
 import mechanize
 import cookielib
@@ -10,22 +9,39 @@ from dateutil.relativedelta import relativedelta
 
 from gCalendar import gCalendar
 
-def checkCalendar(mechBrowser, url):
+def checkCalendar(mechBrowser, url, datestring):
     
     r = mechBrowser.open(url).read()
     soup = BeautifulSoup(r, 'html.parser')
+    calendarEvent = None
+    cancelled = None
+    games = []
 
-    games = soup.find_all("a", { "label": "Create a vCalendar appointment for use in Outlook, Palm Desktop, etc." })
-
+    x = soup.find_all("tr", {"class": "PaddingL5 PaddingR5 Font8"})
+    for row in x:
+        calendarEvent = None
+        for child in row:
+            if child.find("a", { "label": "Create a vCalendar appointment for use in Outlook, Palm Desktop, etc." }):
+                calendarEvent = child.find("a", { "label": "Create a vCalendar appointment for use in Outlook, Palm Desktop, etc." })
+            if (child.find("Cancelled")):
+                calendarEvent = None
+                break
+        if calendarEvent is not None:
+            games.append(calendarEvent)
+            
+    #games = soup.find_all("a", { "label": "Create a vCalendar appointment for use in Outlook, Palm Desktop, etc." })
+    if len(games) == 0:
+        print ("No games found for {0}".format(datestring))
     gc = gCalendar()
     for game in games:
-        g = BeautifulSoup(mechBrowser.open(game['href']).read(), 'html.parser')
-        gc.addEvent(g.contents[0])
+        print (game['href'])
+#        g = BeautifulSoup(mechBrowser.open(game['href']).read(), 'html.parser')
+#        gc.addEvent(g.contents[0])
 
 
 def main():
     if not os.environ.has_key('goUsername') or not os.environ.has_key("goPassword"):
-        print ("cannot find go credentials")
+        print ("cannot find Game Officials credentials")
         exit()
 
     # Browser
@@ -59,7 +75,7 @@ def main():
 
     # check this month
     url = "https://www.gameofficials.net/Game/myGames.cfm?viewRange=ThisMonth&module=myGames"
-    checkCalendar(br, url)
+    checkCalendar(br, url, "this month")
 
     # and next month
     today = datetime.date.today()
@@ -67,8 +83,9 @@ def main():
     today += p1month
     nextMonth = today.month
     nextYear = today.year  # uh, why are we reffing in December?
+    print ("Now checking {0}/1/{1}".format(nextMonth, nextYear))
     url = "https://www.gameofficials.net/Game/myGames.cfm?module=myGames&viewRange=NextMonth&strDay={0}/1/{1}".format(nextMonth, nextYear)
-    checkCalendar(br, url)
+    checkCalendar(br, url, "{0}/1/{1}".format(nextMonth, nextYear))
 
 
 if __name__ == "__main__":
