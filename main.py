@@ -20,12 +20,14 @@ def checkCalendar(mechBrowser, url, datestring):
     x = soup.find_all("tr", {"class": "PaddingL5 PaddingR5 Font8"})
     for row in x:
         calendarEvent = None
-        for child in row:
-            if child.find("a", { "label": "Create a vCalendar appointment for use in Outlook, Palm Desktop, etc." }):
-                calendarEvent = child.find("a", { "label": "Create a vCalendar appointment for use in Outlook, Palm Desktop, etc." })
-            if (child.find("Cancelled")):
-                calendarEvent = None
-                break
+        calendarEvent = row.input.a
+        cols = row.find_all("td")
+        for col in cols:
+            if col.span is not None:
+                if col.span.text == "Cancelled":
+                    print ("found cancelled game");
+                    calendarEvent = None
+                    break
         if calendarEvent is not None:
             games.append(calendarEvent)
             
@@ -35,8 +37,8 @@ def checkCalendar(mechBrowser, url, datestring):
     gc = gCalendar()
     for game in games:
         print (game['href'])
-#        g = BeautifulSoup(mechBrowser.open(game['href']).read(), 'html.parser')
-#        gc.addEvent(g.contents[0])
+        g = BeautifulSoup(mechBrowser.open(game['href']).read(), 'html.parser')
+        gc.addEvent(g.contents[0])
 
 
 def main():
