@@ -1,8 +1,7 @@
 import os
-import mechanize
-import cookielib
-from bs4 import BeautifulSoup
-import html2text
+import mechanicalsoup
+
+#import html2text
 import time
 import datetime
 from datetime import timedelta
@@ -10,74 +9,78 @@ from dateutil.relativedelta import relativedelta
 
 from gCalendar import gCalendar
 
+baseUrl = "https://www.gameofficials.net"
+
 def checkCalendar(mechBrowser, url, currentMonth):
     
-    r = mechBrowser.open(url).read()
-    soup = BeautifulSoup(r, 'html.parser')
+    gamePage = mechBrowser.get(url)
     calendarEvent = None
     cancelled = None
     games = []
 
-    x = soup.find_all("tr", {"class": "PaddingL5 PaddingR5 Font8"})
-    for row in x:
-        calendarEvent = None
-        calendarEvent = row.input.a
+    # get all the games...
+    gameList = gamePage.soup.find_all("tr", { "class" : "PaddingL5 PaddingR5 Font8"})
+
+    for row in gameList:
         cols = row.find_all("td")
-        for col in cols:
-            if col.span is not None:
-                if col.span.text == "Cancelled":
-                    print ("found cancelled game");
-                    calendarEvent = None
-                    break
-        if calendarEvent is not None:
-            games.append(calendarEvent)
+
+        # look for cancelled
+        try:
+            cols[2].text.index("Cancelled")
+            # yep, it's been cancelled
+            continue
+        except ValueError:
+            pass
+        
+        # not cancelled, so get the url of the ical data
+        aas = cols[0].find_all("a")
+        # there should be two a tags
+        if len(aas) != 2:
+            print ("Row {0} seems broken!!!, there are {1} and there should be 2!!!!!"
+                   .format(row.text, len(aas)))
+            continue
+
+        games.append(aas[1]['href'])
             
-    #games = soup.find_all("a", { "label": "Create a vCalendar appointment for use in Outlook, Palm Desktop, etc." })
     if len(games) == 0:
         print ("No games found for {0}".format(currentMonth))
-    gc = gCalendar()
-    for game in games:
-        #print (game['href'])
-        g = BeautifulSoup(mechBrowser.open(game['href']).read(), 'html.parser')
-        gc.addEvent(g.contents[0])
+    else:
+        gc = gCalendar()
+        for game in games:
+            #print (game['href'])
+            icalPage = mechBrowser.get(baseUrl + game)
+            gc.addEvent(icalPage.text)
 
 
 def main():
-    if not os.environ.has_key('goUsername') or not os.environ.has_key("goPassword"):
+    try:
+        x = os.environ['goUsername']
+        y = os.environ["goPassword"]
+    except KeyError:
         print ("cannot find Game Officials credentials")
         exit()
 
     # Browser
-    br = mechanize.Browser()
-
-    # Cookie Jar
-    cj = cookielib.LWPCookieJar()
-    br.set_cookiejar(cj)
-
-    # Browser options
-    br.set_handle_equiv(True)
-    br.set_handle_redirect(True)
-    br.set_handle_referer(True)
-    br.set_handle_robots(False)
-    br.set_handle_refresh(mechanize._http.HTTPRefreshProcessor(), max_time=1)
-
+    br = mechanicalsoup.Browser(soup_config={ 'features': 'lxml'})
     br.addheaders = [('User-agent', 'Chrome')]
 
     # The site we will navigate into, handling it's session
-    br.open('https://www.gameofficials.net/public/default.cfm')
+    login_page_url = baseUrl + '/public/default.cfm'
+    login_page = br.get(login_page_url)
+    login_page.raise_for_status()
 
     # Select the second (index one) form (the first form is a search query box)
-    br.select_form(nr=0)
-
+    login_form = mechanicalsoup.Form(login_page.soup.select_one('form'))
+    
     # User credentials
-    br.form['username'] = os.environ['goUsername']
-    br.form['password'] = os.environ['goPassword']
+    login_form.input({ 'username': os.environ['goUsername'],
+                       'password': os.environ['goPassword'] })
 
     # Login
-    br.submit()
+    login_result = br.submit(login_form, login_page_url)
 
     # check this month
-    url = "https://www.gameofficials.net/Game/myGames.cfm?viewRange=ThisMonth&module=myGames"
+    url = baseUrl +  "/Game/myGames.cfm?viewRange=ThisMonth&module=myGames"
     print ("checking this month...")
     checkCalendar(br, url, "this month")
 
@@ -89,7 +92,7 @@ def main():
     nextMonthStr = today.strftime("%B")
     nextYear = today.year  # uh, why are we reffing in December?
     print ("Now checking {0}".format(nextMonthStr))
-    url = "https://www.gameofficials.net/Game/myGames.cfm?module=myGames&viewRange=NextMonth&strDay={0}/1/{1}".format(nextMonth, nextYear)
+    url = baseUrl + "/Game/myGames.cfm?module=myGames&viewRange=NextMonth&strDay={0}/1/{1}".format(nextMonth, nextYear)
     checkCalendar(br, url, nextMonthStr)
 
 if __name__ == "__main__":
