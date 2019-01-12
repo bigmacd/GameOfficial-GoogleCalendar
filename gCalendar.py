@@ -70,20 +70,28 @@ class gCalendar:
         gEnd = game.find(']')
         gEnd = len(game) - gEnd
         gId = game[gStart:-gEnd]
-        searchString = '"[Game: {0}]"'.format(gId)
+        #searchString = '"[Game: {0}]"'.format(gId)
+        searchString = game
+        searchString = game.split("\n")[0]
+        print("searchstring = {0}".format(searchString))
         # only start looking from the beginning of this month as game number from previous years recycle
         now = datetime.datetime.utcnow()
         now = now.replace(day=1)
         timemin = now.isoformat() + 'Z'
-        print ("game id: {0}".format(gId))
+        print ("checking for game id: {0}".format(gId))
         events = self.service.events().list(calendarId='primary', timeMin=timemin, q=searchString).execute()
-        print ("game found? {0}".format(len(events['items']) > 0))
+        #print ("game found? {0}".format(len(events['items']) > 0))
         if len(events['items']) > 0:
             for item in events['items']:
-                print ("*******************************************************")
-                print ("Found:")
-                print (item['description'])
-                print ("*******************************************************")
+                #print ("*******************************************************")
+                print ("Found existing game")
+                #if 'description' in item:
+                #    print (item['description'])
+                #else:
+                #    print ("No Description")
+                #print ("*******************************************************")
+        else:
+            print("did not find existing game for game id: {0}".format(gId))
         return len(events['items']) > 0
 
     def icsToEvent(self, icsData):    

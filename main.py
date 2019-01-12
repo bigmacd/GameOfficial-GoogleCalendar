@@ -5,11 +5,12 @@ from bs4 import BeautifulSoup
 import html2text
 import time
 import datetime
+from datetime import timedelta
 from dateutil.relativedelta import relativedelta
 
 from gCalendar import gCalendar
 
-def checkCalendar(mechBrowser, url, datestring):
+def checkCalendar(mechBrowser, url, currentMonth):
     
     r = mechBrowser.open(url).read()
     soup = BeautifulSoup(r, 'html.parser')
@@ -33,10 +34,10 @@ def checkCalendar(mechBrowser, url, datestring):
             
     #games = soup.find_all("a", { "label": "Create a vCalendar appointment for use in Outlook, Palm Desktop, etc." })
     if len(games) == 0:
-        print ("No games found for {0}".format(datestring))
+        print ("No games found for {0}".format(currentMonth))
     gc = gCalendar()
     for game in games:
-        print (game['href'])
+        #print (game['href'])
         g = BeautifulSoup(mechBrowser.open(game['href']).read(), 'html.parser')
         gc.addEvent(g.contents[0])
 
@@ -77,6 +78,7 @@ def main():
 
     # check this month
     url = "https://www.gameofficials.net/Game/myGames.cfm?viewRange=ThisMonth&module=myGames"
+    print ("checking this month...")
     checkCalendar(br, url, "this month")
 
     # and next month
@@ -84,13 +86,20 @@ def main():
     p1month = relativedelta(months=1)
     today += p1month
     nextMonth = today.month
+    nextMonthStr = today.strftime("%B")
     nextYear = today.year  # uh, why are we reffing in December?
-    print ("Now checking {0}/1/{1}".format(nextMonth, nextYear))
+    print ("Now checking {0}".format(nextMonthStr))
     url = "https://www.gameofficials.net/Game/myGames.cfm?module=myGames&viewRange=NextMonth&strDay={0}/1/{1}".format(nextMonth, nextYear)
-    checkCalendar(br, url, "{0}/1/{1}".format(nextMonth, nextYear))
-
+    checkCalendar(br, url, nextMonthStr)
 
 if __name__ == "__main__":
     while(True):
-        main()
+        today = datetime.datetime.now()
+        try:
+            main()
+        except:
+            pass
+
+        h1 = today + timedelta(hours=1)
+        print("Will check again at {:%H:%M:%S}".format(h1))
         time.sleep(60*60*1) # 1 hour
