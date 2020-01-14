@@ -1,4 +1,5 @@
 # Populate your Google calendar from your [Game Officials](http://www.gameofficials.net) game list.
+# Now supports [My Soccer League](http://mysoccerleague.com) too!
 
 A simple little program that will log into your GO account and find all your assignments for the current month and the next month.  It will then add those to your Google calendar if they do not already exist.
 
