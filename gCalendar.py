@@ -18,7 +18,7 @@ CLIENT_SECRET_FILE = 'client_secret.json'
 APPLICATION_NAME = 'gameofficials'
 
 class gCalendar:
-    
+
     def __init__(self):
         try:
             import argparse
@@ -94,7 +94,7 @@ class gCalendar:
             print("did not find existing game for game id: {0}".format(gId))
         return len(events['items']) > 0
 
-    def icsToEvent(self, icsData):    
+    def icsToEvent(self, icsData):
         calendar = icalendar.Calendar.from_ical(icsData)
         for entry in calendar.walk('VEVENT'):
             return { 'summary': entry['SUMMARY'],
@@ -106,5 +106,5 @@ class gCalendar:
                      'end': { 'dateTime': entry['DTEND'].dt.strftime('%Y-%m-%dT%H:%M:%S-00:00'),
                               'timeZone': "UTC"
                      }
-            } 
+            }
 
