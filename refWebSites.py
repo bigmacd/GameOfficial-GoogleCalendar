@@ -69,6 +69,9 @@ class MySoccerLeague(RefereeWebSite):
             rowtype2 = assignments_page.soup.find_all("tr", { "class" : 'trstyle2'})
             assignments = rowtype1 + rowtype2
 
+            print("Found {0} assignments at {1}".format(len(assignments),
+                                                        self._baseUrl))
+
             for a in assignments:
                 elements = a.find_all('td')
                 retVal.append(self._makeIcal(elements))
@@ -142,8 +145,9 @@ class GameOfficials(RefereeWebSite):
 
         # check this month
         url = self._baseUrl +  "/Game/myGames.cfm?viewRange=ThisMonth&module=myGames"
-        print ("checking this month...")
+        print ("checking this month at {0}...".format(self._baseUrl))
         thisMonthsAssigments = self._findAssignments(url, "this month")
+        print("Found {0} assignments this month".format(len(thisMonthsAssigments)))
 
         # and next month
         today = datetime.date.today()
@@ -154,9 +158,10 @@ class GameOfficials(RefereeWebSite):
         nextYear = today.year  # uh, why are we reffing in December?
         #url = self._baseUrl + "/Game/myGames.cfm?viewRange=NextMonth&strDay=12/1/19&module=myGames"
         url = self._baseUrl + "/Game/myGames.cfm?module=myGames&viewRange=NextMonth&strDay={0}/1/{1}".format(nextMonth, nextYear)
-        print ("Now checking {0}".format(nextMonthStr))
+        print ("Now checking {0} at {1}".format(nextMonthStr, self._baseUrl))
         nextMonthsAssignments = self._findAssignments(url, nextMonthStr)
-
+        print("Found {0} assignments for {1}".format(len(nextMonthsAssignments),
+                                                     nextMonthStr))
         return thisMonthsAssigments + nextMonthsAssignments
 
 
@@ -189,7 +194,7 @@ class GameOfficials(RefereeWebSite):
             icalData = self._browser.get(self._baseUrl + aas[1]['href'])
             games.append(icalData.text)
 
-        if len(games) == 0:
-            print ("No games found for {0}".format(currentMonth))
+#        if len(games) == 0:
+#            print ("No games found for {0}".format(currentMonth))
 
         return games
