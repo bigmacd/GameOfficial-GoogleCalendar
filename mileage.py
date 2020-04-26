@@ -6,8 +6,7 @@ from refWebSites import GameOfficials
 from datetime import datetime as dt
 
 
-geoCodeKey = '9a42b593439147d894ed14206d1c7ec0'
-bingKey = 'AvkjnSEd_9Ug_wrddndq6K4vaS3pmf0cAiJZhN_LGUum51tWj83cNUFdAh5eAcDt'
+
 gameReportUrl = 'https://www.gameofficials.net/Game/myGames.cfm?module=myGames&viewRange=NextYear&strDay=1/1/19'
 
 # for searching the locations
