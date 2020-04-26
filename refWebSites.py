@@ -11,6 +11,9 @@ class RefereeWebSite(object):
 
     def __init__(self, br):
         self._browser = br
+        self._baseUrl = None
+        self._loginPage = None
+        self._loginFormInput = None
 
     def baseUrl(self):
         return self._baseUrl
@@ -20,6 +23,9 @@ class RefereeWebSite(object):
 
     def loginFormInput(self):
         return self._loginFormInput
+
+    def getLocationDetails(self, assignmentData):
+        return None
 
 
 class MySoccerLeague(RefereeWebSite):
@@ -130,18 +136,27 @@ class GameOfficials(RefereeWebSite):
     def __init__(self, br):
         super(GameOfficials, self).__init__(br)
         self._baseUrl = "https://www.gameofficials.net"
+        self._locationUrl = 'https://www.gameofficials.net/Location/location.cfm'
         self._loginPage = self._baseUrl + "/public/default.cfm"
         self._loginFormInput = { 'username': os.environ['goUsername'],
                                 'password': os.environ['goPassword'] }
+        self._logged_in = False
+        self._login()
+
+
+    def _login(self):
+        if not self._logged_in:
+            self._browser.open(self._loginPage)
+            self._browser.select_form('form')
+            #self._browser.get_current_form().print_summary()
+            self._browser['username'] = self._loginFormInput['username']
+            self._browser['password'] = self._loginFormInput['password']
+            self._browser.submit_selected()
+            self._logged_in = True
+
 
     def getAssignments(self):
-        self._browser.open(self._loginPage)
-        self._browser.select_form('form')
-        #self._browser.get_current_form().print_summary()
-        self._browser['username'] = self._loginFormInput['username']
-        self._browser['password'] = self._loginFormInput['password']
-        self._browser.submit_selected()
-
+        self._login()
 
         # check this month
         url = self._baseUrl +  "/Game/myGames.cfm?viewRange=ThisMonth&module=myGames"
@@ -198,3 +213,51 @@ class GameOfficials(RefereeWebSite):
 #            print ("No games found for {0}".format(currentMonth))
 
         return games
+
+    
+    def getLocations(self) -> list:
+        retVal = []
+        allLocationsUrl = "https://www.gameofficials.net/Location/location.cfm?iRangeStart=0"
+        locations = self._browser.open(allLocationsUrl)
+        table = locations.soup.find('table', { 'style': 'width:90%;'})
+        rows = table.find_all("tr")
+        first = True
+        for row in rows:
+            if first is True:
+                first = False
+                continue
+            data = row.find_all('td')
+            retVal.append((data[1].text.strip(), 
+                           data[2].text.strip()))
+        return retVal
+
+    def getLocationDetails(self, facility: str) -> dict:
+        _ = self._browser.open(self._locationUrl)
+        locationForm = self._browser.select_form('form[action="/Location/location.cfm"]')
+        
+        parsed = facility.split(" ")
+        facility = parsed[0] + " " + parsed[1] # just the first two
+        locationForm['SearchInput'] = facility
+        locationForm['IS_SEARCH'] = "True"
+        findResponse = self._browser.submit_selected()
+        table = findResponse.soup.find('table', { 'style': 'width:90%;'})
+        rows = table.find_all("tr")
+        dataItems = rows[1].find_all("td") # skip the header row
+        contents = dataItems[2].contents[0].split('\xa0') # what?
+        # Now we have:
+        #   ['7601 LOISDALE ROAD  ', '\r\n\t\tSPRINGFIELD,\r\n\t\t', 'VA 22039']
+        #   0:'7601 LOISDALE ROAD  '
+        #   1:'\r\n\t\tSPRINGFIELD,\r\n\t\t'
+        #   2:'VA 22039'
+        street = contents[0].strip()
+        city = contents[1].strip().strip(',')
+        statezip = contents[2].split(' ')
+        state = statezip[0]
+        zip = statezip[1]
+
+        return { 
+            'street': street,
+            'city': city,
+            'state': state,
+            'zip': zip
+        }
