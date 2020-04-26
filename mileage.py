@@ -7,6 +7,7 @@ from refWebSites import GameOfficials
 from datetime import datetime as dt
 import difflib
 
+
 gameReportUrl = 'https://www.gameofficials.net/Game/myGames.cfm?module=myGames&viewRange=NextYear&strDay=1/1/19'
 
 # for searching the locations
