@@ -1,20 +1,29 @@
 import csv
+import os
 import requests
 import json
 import mechanicalsoup
 from refWebSites import GameOfficials
 from datetime import datetime as dt
+import difflib
 
-
-geoCodeKey = '9a42b593439147d894ed14206d1c7ec0'
-bingKey = 'AvkjnSEd_9Ug_wrddndq6K4vaS3pmf0cAiJZhN_LGUum51tWj83cNUFdAh5eAcDt'
 gameReportUrl = 'https://www.gameofficials.net/Game/myGames.cfm?module=myGames&viewRange=NextYear&strDay=1/1/19'
 
 # for searching the locations
 locationUrl = 'https://www.gameofficials.net/Location/location.cfm'
 
 
-def getCityStateValues(csvFile: str) -> dict:
+def getCityStateValuesFromSpreadsheet(csvFile: str) -> dict:
+    ''' We can get (download) a spreadsheet ('report') from the web site.  Done manually, 
+        this was quick and easy.  The spreadsheet was manually manipulated to remove the 
+        assignments that are 'duplicates' (in the case of having multiple games at the same 
+        venue consecutively).  Eventually we will just want to pull the list from the 
+        website the same way we get current game assignments (and 'de-duplicate').
+
+        In either case (spreadsheet or crawled), the assignments data contains a location
+        like 'SIMPSON MS'.  So we gather all these and use this location as the key to 
+        store the rest of the data.  
+    '''
     retVal = {}
     with open(csvFile, newline='') as fp:
         lines = csv.reader(fp, delimiter=',')
@@ -45,12 +54,15 @@ def getCityStateValues(csvFile: str) -> dict:
 
 
 def getLatLong(cityStateData: dict) -> dict:
-    geocodeUrl = "https://geoservices.tamu.edu/Services/Geocode/WebService/GeocoderWebServiceHttpNonParsedAdvanced_V04_01.aspx?apiKey={0}&version=4.1&format=json&verbose=true&StreetAddress=%20%20%20%20%20%20&city={1}&state={2}&zip=&ratts=PreDirectional,Suffix,PostDirectional,City,Zip&souatts=StreetName,City"
-    geocodeUrlDetail = "https://geoservices.tamu.edu/Services/Geocode/WebService/GeocoderWebServiceHttpNonParsedAdvanced_V04_01.aspx?apiKey={0}&version=4.1&format=json&verbose=true&StreetAddress={1}&city={2}&state={3}&zip={4}&ratts=PreDirectional,Suffix,PostDirectional,City,Zip&souatts=StreetName,City"
+    geoCodeKey = os.environ['geoCodeKey']
+    #geocodeUrl = "https://geoservices.tamu.edu/Services/Geocode/WebService/GeocoderWebServiceHttpNonParsedAdvanced_V04_01.aspx?apiKey={0}&version=4.1&format=json&verbose=true&StreetAddress=%20%20%20%20%20%20&city={1}&state={2}&zip=&ratts=PreDirectional,Suffix,PostDirectional,City,Zip&souatts=StreetName,City"
+    geocodeUrl = "https://geoservices.tamu.edu/Services/Geocode/WebService/GeocoderWebServiceHttpNonParsedAdvanced_V04_01.aspx?apiKey={0}&version=4.1&format=json&verbose=true&StreetAddress={1}&city={2}&state={3}&zip={4}&ratts=PreDirectional,Suffix,PostDirectional,City,Zip&souatts=StreetName,City"
     for location in cityStateData.items():
+        address = location[1]['street']
         city = location[1]['city']
         state = location[1]['state']
-        url = geocodeUrl.format(geoCodeKey, city, state)
+        zip = location[1]['zip']
+        url = geocodeUrl.format(geoCodeKey, address, city, state, zip)
         response = requests.get(url)
         jsonData = json.loads(response.content)
         latitude = jsonData['OutputGeocodes'][0]['OutputGeocode']['Latitude']
@@ -61,6 +73,7 @@ def getLatLong(cityStateData: dict) -> dict:
 
 
 def getMilage(cityStateData: dict) -> dict:
+    bingKey = os.environ['bingKey']
     distanceUrl = "https://dev.virtualearth.net/REST/v1/Routes/DistanceMatrix?origins=38.9062046,-77.2777969&destinations={0},{1}&travelMode=driving&key={2}"
     for data in cityStateData.values():
         latitude = data['latitude']
@@ -73,24 +86,40 @@ def getMilage(cityStateData: dict) -> dict:
     return cityStateData
 
 
-def getLocationDetails(data: dict) -> dict:
-    br = mechanicalsoup.StatefulBrowser(soup_config={ 'features': 'lxml'})
-    br.addheaders = [('User-agent', 'Chrome')]
-    go = GameOfficials(br)
-    for k in data.keys():
-        parsed = k.split(" ")
-        facility = parsed[0] + " " + parsed[1]
+def findLocationDetails(k: str, allLocations: dict) -> dict:
+    if k in allLocations:
+        return allLocations[k]
+    else:
+        # let's try some kind of matching thing
+        keys = allLocations.keys()
+        match = difflib.get_close_matches(k, keys, n=1)
+        if (len(match) > 0):
+            print("Found a match for {0}: {1}".format(k, match[0]))
+            return allLocations[match[0]]
+        else:
+            return None
 
-        values = go.getLocationDetails(facility)
 
-        data[k]['street'] = values['street']
-        data[k]['city'] = values['city']
-        data[k]['state'] = values['state']
-        data[k]['zip'] = values['zip']
+def getGoLocationDetails(allAssignments: dict, allLocations: list) -> dict:
+    ''' Extract assignment location details from allLocations and update the dictionary
+        for each assignment.
+    '''
+    for k in allAssignments.keys():
+        details = findLocationDetails(k, allLocations)
+        if details is not None:
+            allAssignments[k]['street'] = details['street']
+            allAssignments[k]['city'] = details['city']
+            allAssignments[k]['state'] = details['state']
+            allAssignments[k]['zip'] = details['zip']
 
-    return data
+    return allAssignments
 
-def getLocations():
+
+def getMslLocations():
+    pass
+
+
+def getGoLocations():
     br = mechanicalsoup.StatefulBrowser(soup_config={ 'features': 'lxml'})
     br.addheaders = [('User-agent', 'Chrome')]
     go = GameOfficials(br)
@@ -114,25 +143,37 @@ def tweakGoData(city, state, facility):
     return city, state, facility
 
 
-if __name__ == "__main__":
-    # pull the high level location information from the yearly summary report
-    data = getCityStateValues("goMileage2019.csv")
+def doGameOfficials():
+   # pull the high level location information from the yearly summary report
+    assignmentData = getCityStateValuesFromSpreadsheet("goMileage2019.csv")
 
     # grab all the location data
-    locations = getLocations()
+    allLocations = getGoLocations()
 
     # try to get the details of the location (address, zip)
-    getLocationDetails(data)
+    assignmentData = getGoLocationDetails(assignmentData, allLocations)
+
+    return assignmentData
+
+
+def doMsl(assignmentData: dict) -> dict:
+    return assignmentData
+
+
+if __name__ == "__main__":
+ 
+    assignmentData = doGameOfficials()
+    assignmentData = doMsl(assignmentData)
 
     # get the lat and long from the tamu web site
-    data = getLatLong(data)
+    data = getLatLong(assignmentData)
 
     # get milage from the Bing API
-    data = getMilage(data)
+    data = getMilage(assignmentData)
     
     # math
     totalMileage = 0
-    for value in data.values():
+    for value in assignmentData.values():
         totalMileage += value['count'] * value['distance']
     
     print("Total mileage for {0} is {1}".format(dt.now().year, totalMileage))

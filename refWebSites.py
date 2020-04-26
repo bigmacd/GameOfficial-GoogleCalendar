@@ -216,7 +216,7 @@ class GameOfficials(RefereeWebSite):
 
     
     def getLocations(self) -> list:
-        retVal = []
+        retVal = {}
         allLocationsUrl = "https://www.gameofficials.net/Location/location.cfm?iRangeStart=0"
         locations = self._browser.open(allLocationsUrl)
         table = locations.soup.find('table', { 'style': 'width:90%;'})
@@ -227,11 +227,33 @@ class GameOfficials(RefereeWebSite):
                 first = False
                 continue
             data = row.find_all('td')
-            retVal.append((data[1].text.strip(), 
-                           data[2].text.strip()))
+            venue = data[1].text.strip()
+            contents = data[2].text.split('\xa0') # what?
+            # Now we have:
+            #   ['7601 LOISDALE ROAD  ', '\r\n\t\tSPRINGFIELD,\r\n\t\t', 'VA 22039']
+            #   0:'7601 LOISDALE ROAD  '
+            #   1:'\r\n\t\tSPRINGFIELD,\r\n\t\t'
+            #   2:'VA 22039'
+            street = contents[0].strip()
+            city = contents[1].strip().strip(',')
+            statezip = contents[2].split(' ')
+            state = statezip[0]
+            zip = statezip[1]
+
+            details = { 
+                'street': street,
+                'city': city,
+                'state': state,
+                'zip': zip
+            }
+            retVal[venue] = details
         return retVal
 
     def getLocationDetails(self, facility: str) -> dict:
+        ''' Use Game Officials 'Location' search function to find the details
+            of an assignment's location.  For example, an assignment's location
+            might be 'SIMPSON MS', this will return the address from GO.
+        '''
         _ = self._browser.open(self._locationUrl)
         locationForm = self._browser.select_form('form[action="/Location/location.cfm"]')
         
